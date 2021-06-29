@@ -18,6 +18,7 @@
 package state
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math/big"
@@ -56,6 +57,13 @@ func (n *proofList) Delete(key []byte) error {
 	panic("not supported")
 }
 
+// DiffDb is a database for storing state diffs per block
+type TxDB interface {
+	InsertTx(tx string) error
+	Close() error
+	ForceCommit() error
+}
+
 // StateDB structs within the ethereum protocol are used to store anything
 // within the merkle trie. StateDBs take care of caching and storing
 // nested states. It's the general query interface to retrieve:
@@ -63,6 +71,7 @@ func (n *proofList) Delete(key []byte) error {
 // * Accounts
 type StateDB struct {
 	db   Database
+	txDb TxDB
 	trie Trie
 
 	snaps         *snapshot.Tree
@@ -87,6 +96,7 @@ type StateDB struct {
 	refund uint64
 
 	thash, bhash common.Hash
+	rawTx        []byte
 	txIndex      int
 	logs         map[common.Hash][]*types.Log
 	logSize      uint
@@ -114,6 +124,15 @@ type StateDB struct {
 	SnapshotAccountReads time.Duration
 	SnapshotStorageReads time.Duration
 	SnapshotCommits      time.Duration
+}
+
+func NewWithTxDb(root common.Hash, db Database, snaps *snapshot.Tree, txDb TxDB) (*StateDB, error) {
+	stateDb, err := New(root, db, snaps)
+	if err != nil {
+		return nil, err
+	}
+	stateDb.txDb = txDb
+	return stateDb, nil
 }
 
 // New creates a new state from a given trie.
@@ -569,6 +588,15 @@ func (s *StateDB) GetOrNewStateObject(addr common.Address) *stateObject {
 	if stateObject == nil {
 		stateObject, _ = s.createObject(addr)
 	}
+	if stateObject.originData == nil {
+		data := stateObject.data
+		stateObject.originData = &Account{
+			Nonce:    data.Nonce,
+			Balance:  data.Balance,
+			Root:     data.Root,
+			CodeHash: data.CodeHash,
+		}
+	}
 	return stateObject
 }
 
@@ -650,6 +678,7 @@ func (s *StateDB) Copy() *StateDB {
 	// Copy all the basic fields, initialize the memory ones
 	state := &StateDB{
 		db:                  s.db,
+		txDb:                s.txDb,
 		trie:                s.db.CopyTrie(s.trie),
 		stateObjects:        make(map[common.Address]*stateObject, len(s.journal.dirties)),
 		stateObjectsPending: make(map[common.Address]struct{}, len(s.stateObjectsPending)),
@@ -744,6 +773,78 @@ func (s *StateDB) GetRefund() uint64 {
 // the journal as well as the refunds. Finalise, however, will not push any updates
 // into the tries just yet. Only IntermediateRoot or Commit will do that.
 func (s *StateDB) Finalise(deleteEmptyObjects bool) {
+	if s.thash.Hex() != "0x0000000000000000000000000000000000000000000000000000000000000000" {
+		dirties := make(map[common.Address]bool)
+		for addr := range s.journal.dirties {
+			dirties[addr] = true
+		}
+		txStore := &TxStore{
+			TxHash:           s.thash.Hex(),
+			RawTx:            common.Bytes2Hex(s.rawTx),
+			StateObjectStore: nil,
+		}
+		// save original storage
+		for _, obj := range s.stateObjects {
+			var originAccount AccountStore
+			if obj.originData != nil {
+				originAccount = AccountStore{
+					Nonce:    obj.originData.Nonce,
+					Balance:  obj.originData.Balance.String(),
+					CodeHash: common.Bytes2Hex(obj.originData.CodeHash),
+				}
+			}
+			currentAccount := AccountStore{
+				Nonce:    obj.data.Nonce,
+				Balance:  obj.data.Balance.String(),
+				CodeHash: common.Bytes2Hex(obj.data.CodeHash),
+			}
+			originStorage := make([]storage, len(obj.originStorage))
+			for key, value := range obj.originStorage {
+				store := storage{
+					Key:   key.Hex(),
+					Value: value.Hex(),
+				}
+				originStorage = append(originStorage, store)
+			}
+			currentStorage := make([]storage, len(obj.dirtyStorage))
+			for key, value := range obj.dirtyStorage {
+				store := storage{
+					Key:   key.Hex(),
+					Value: value.Hex(),
+				}
+				currentStorage = append(currentStorage, store)
+			}
+			stateObj := stateObjectStore{
+				Address:        obj.address.Hex(),
+				Code:           common.Bytes2Hex(obj.code),
+				OriginAccount:  originAccount,
+				CurrentAccount: currentAccount,
+				OriginStorage:  originStorage,
+				CurrentStorage: currentStorage,
+				Deleted:        obj.deleted,
+			}
+			if flag := dirties[obj.address]; flag && obj.suicided || (deleteEmptyObjects && obj.empty()) {
+				stateObj.Deleted = true
+			}
+			// reset obj.originData
+			obj.originData = nil
+			txStore.StateObjectStore = append(txStore.StateObjectStore, stateObj)
+		}
+
+		txStoreBytes, err := json.Marshal(txStore)
+		if err != nil {
+			panic("cannot marshal txStore")
+		}
+		log.Debug("", "txStore", string(txStoreBytes))
+		if s.txDb != nil {
+			err = s.txDb.InsertTx(string(txStoreBytes))
+			if err != nil {
+				log.Warn(fmt.Sprintf("cannot InsertTx %v err %v", s.thash.Hex(), err))
+			}
+		} else {
+			log.Warn("Ignore tx", "tx message", string(txStoreBytes))
+		}
+	}
 	for addr := range s.journal.dirties {
 		obj, exist := s.stateObjects[addr]
 		if !exist {
@@ -777,6 +878,33 @@ func (s *StateDB) Finalise(deleteEmptyObjects bool) {
 	s.clearJournalAndRefund()
 }
 
+type TxStore struct {
+	TxHash           string             `json:"txHash"`
+	RawTx            string             `json:"rawTx"`
+	StateObjectStore []stateObjectStore `json:"stateObjectStore"`
+}
+
+type AccountStore struct {
+	Nonce    uint64 `json:"nonce"`
+	Balance  string `json:"balance"`
+	CodeHash string `json:"codeHash"`
+}
+
+type storage struct {
+	Key   string `json:"key"`
+	Value string `json:"value"`
+}
+
+type stateObjectStore struct {
+	Address        string       `json:"address"`
+	Code           string       `json:"code"`
+	OriginAccount  AccountStore `json:"originAccount"`
+	CurrentAccount AccountStore `json:"currentAccount"`
+	OriginStorage  []storage    `json:"originStorage"`
+	CurrentStorage []storage    `json:"currentStorage"`
+	Deleted        bool         `json:"deleted"`
+}
+
 // IntermediateRoot computes the current root hash of the state trie.
 // It is called in between transactions to get the root hash that
 // goes into transaction receipts.
@@ -805,10 +933,11 @@ func (s *StateDB) IntermediateRoot(deleteEmptyObjects bool) common.Hash {
 
 // Prepare sets the current transaction hash and index and block hash which is
 // used when the EVM emits new state logs.
-func (s *StateDB) Prepare(thash, bhash common.Hash, ti int) {
+func (s *StateDB) Prepare(thash, bhash common.Hash, ti int, rawTx []byte) {
 	s.thash = thash
 	s.bhash = bhash
 	s.txIndex = ti
+	s.rawTx = rawTx
 	s.accessList = newAccessList()
 }
 

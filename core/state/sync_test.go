@@ -139,6 +139,23 @@ func TestEmptyStateSync(t *testing.T) {
 	}
 }
 
+type Test struct {
+	acc *Account
+}
+
+func TestAccount(t *testing.T) {
+	xx := &Test{}
+	//a := Account{
+	//	Nonce:    0,
+	//	Balance:  nil,
+	//	Root:     common.Hash{},
+	//	CodeHash: nil,
+	//}
+	//a.Balance = new(big.Int)
+
+	print(xx.acc.Nonce)
+}
+
 // Tests that given a root hash, a state can sync iteratively on a single thread,
 // requesting retrieval tasks and returning all of them in one go.
 func TestIterativeStateSyncIndividual(t *testing.T) {

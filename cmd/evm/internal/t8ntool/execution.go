@@ -17,6 +17,7 @@
 package t8ntool
 
 import (
+	"bytes"
 	"fmt"
 	"math/big"
 	"os"
@@ -141,7 +142,12 @@ func (pre *Prestate) Apply(vmConfig vm.Config, chainConfig *params.ChainConfig,
 		}
 		vmConfig.Tracer = tracer
 		vmConfig.Debug = (tracer != nil)
-		statedb.Prepare(tx.Hash(), blockHash, txIndex)
+		txBuffer := new(bytes.Buffer)
+		err = tx.EncodeRLP(txBuffer)
+		if err != nil {
+			log.Error("AddTxWithChain", "err", err)
+		}
+		statedb.Prepare(tx.Hash(), blockHash, txIndex, txBuffer.Bytes())
 		txContext := core.NewEVMTxContext(msg)
 
 		evm := vm.NewEVM(vmContext, txContext, statedb, chainConfig, vmConfig)

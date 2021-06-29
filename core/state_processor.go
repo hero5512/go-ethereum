@@ -17,7 +17,9 @@
 package core
 
 import (
+	"bytes"
 	"fmt"
+	"github.com/prometheus/common/log"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/consensus"
@@ -75,7 +77,12 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 		if err != nil {
 			return nil, nil, 0, err
 		}
-		statedb.Prepare(tx.Hash(), block.Hash(), i)
+		txBuffer := new(bytes.Buffer)
+		err = tx.EncodeRLP(txBuffer)
+		if err != nil {
+			log.Error("Process", "err", err)
+		}
+		statedb.Prepare(tx.Hash(), block.Hash(), i, txBuffer.Bytes())
 		receipt, err := applyTransaction(msg, p.config, p.bc, nil, gp, statedb, header, tx, usedGas, vmenv)
 		if err != nil {
 			return nil, nil, 0, fmt.Errorf("could not apply tx %d [%v]: %w", i, tx.Hash().Hex(), err)

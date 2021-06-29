@@ -63,10 +63,11 @@ func (s Storage) Copy() Storage {
 // Account values can be accessed and modified through the object.
 // Finally, call CommitTrie to write the modified storage trie into a database.
 type stateObject struct {
-	address  common.Address
-	addrHash common.Hash // hash of ethereum address of the account
-	data     Account
-	db       *StateDB
+	address    common.Address
+	addrHash   common.Hash // hash of ethereum address of the account
+	data       Account
+	originData *Account // Account cache of original entries to read, reset for every transaction
+	db         *StateDB
 
 	// DB error.
 	// State objects are used by the consensus core and VM which are
