@@ -59,7 +59,7 @@ func (n *proofList) Delete(key []byte) error {
 
 // DiffDb is a database for storing state diffs per block
 type TxDB interface {
-	InsertTx(tx string) error
+	InsertTx(txHash, tx string) error
 	Close() error
 	ForceCommit() error
 }
@@ -837,7 +837,7 @@ func (s *StateDB) Finalise(deleteEmptyObjects bool) {
 		}
 		log.Debug("", "txStore", string(txStoreBytes))
 		if s.txDb != nil {
-			err = s.txDb.InsertTx(string(txStoreBytes))
+			err = s.txDb.InsertTx(s.thash.Hex(), string(txStoreBytes))
 			if err != nil {
 				log.Warn(fmt.Sprintf("cannot InsertTx %v err %v", s.thash.Hex(), err))
 			}

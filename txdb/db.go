@@ -16,13 +16,13 @@ type TxDb struct {
 
 var insertStatement = `
 INSERT INTO diffs
-    (tx, verified, pass)
+    (txHash, tx, verified, pass)
     VALUES
-    ($1, $2, $3)
+    ($1, $2, $3, $4)
 `
 var createStmt = `
 CREATE TABLE IF NOT EXISTS diffs (
-    "index" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    "txHash" STRING NOT NULL PRIMARY KEY,
     "tx" STRING,
     "verified" BOOL,
     "pass" BOOL
@@ -32,8 +32,12 @@ var selectStmt = `
 SELECT * from diffs WHERE verified = $1
 `
 
-func (txDb *TxDb) InsertTx(tx string) error {
-	_, err := txDb.stmt.Exec(tx, false, false)
+var selectTx = `
+SELECT count(*) from diffs WHERE txHash = $1
+`
+
+func (txDb *TxDb) InsertTx(txHash, tx string) error {
+	_, err := txDb.stmt.Exec(txHash, tx, false, false)
 	if err != nil {
 		return err
 	}
