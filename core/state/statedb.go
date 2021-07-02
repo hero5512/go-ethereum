@@ -96,6 +96,9 @@ type StateDB struct {
 	refund uint64
 
 	thash, bhash common.Hash
+	height       *big.Int
+	timeStamp    uint64
+	coinbase     common.Address
 	rawTx        []byte
 	txIndex      int
 	logs         map[common.Hash][]*types.Log
@@ -779,7 +782,12 @@ func (s *StateDB) Finalise(deleteEmptyObjects bool) {
 			dirties[addr] = true
 		}
 		txStore := &TxStore{
+			Height:           s.height.String(),
+			BlockHash:        s.bhash.Hex(),
+			Coinbase:         s.coinbase.Hex(),
+			TimeStamp:        s.timeStamp,
 			TxHash:           s.thash.Hex(),
+			TxIndex:          s.txIndex,
 			RawTx:            common.Bytes2Hex(s.rawTx),
 			StateObjectStore: nil,
 		}
@@ -879,7 +887,12 @@ func (s *StateDB) Finalise(deleteEmptyObjects bool) {
 }
 
 type TxStore struct {
+	Height           string             `json:"height"`
+	BlockHash        string             `json:"blockHash"`
+	Coinbase         string             `json:"coinbase"`
+	TimeStamp        uint64             `json:"timeStamp"`
 	TxHash           string             `json:"txHash"`
+	TxIndex          int                `json:"txIndex"`
 	RawTx            string             `json:"rawTx"`
 	StateObjectStore []stateObjectStore `json:"stateObjectStore"`
 }
@@ -933,7 +946,10 @@ func (s *StateDB) IntermediateRoot(deleteEmptyObjects bool) common.Hash {
 
 // Prepare sets the current transaction hash and index and block hash which is
 // used when the EVM emits new state logs.
-func (s *StateDB) Prepare(thash, bhash common.Hash, ti int, rawTx []byte) {
+func (s *StateDB) Prepare(height *big.Int, coinbase common.Address, thash, bhash common.Hash, time uint64, ti int, rawTx []byte) {
+	s.height = height
+	s.coinbase = coinbase
+	s.timeStamp = time
 	s.thash = thash
 	s.bhash = bhash
 	s.txIndex = ti

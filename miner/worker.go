@@ -795,7 +795,7 @@ func (w *worker) commitTransactions(txs *types.TransactionsByPriceAndNonce, coin
 			log.Error("commitTransactions", "err", err)
 		}
 		// Start executing the transaction
-		w.current.state.Prepare(tx.Hash(), common.Hash{}, w.current.tcount, txBuffer.Bytes())
+		w.current.state.Prepare(new(big.Int).SetUint64(0), common.Address{}, tx.Hash(), common.Hash{}, 0, w.current.tcount, txBuffer.Bytes())
 
 		logs, err := w.commitTransaction(tx, coinbase)
 		switch {

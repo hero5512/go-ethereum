@@ -109,7 +109,7 @@ func (b *BlockGen) AddTxWithChain(bc *BlockChain, tx *types.Transaction) {
 	if err != nil {
 		log.Errorf("AddTxWithChain", "err", err)
 	}
-	b.statedb.Prepare(tx.Hash(), common.Hash{}, len(b.txs), txBuffer.Bytes())
+	b.statedb.Prepare(new(big.Int).SetUint64(0), common.Address{}, tx.Hash(), common.Hash{}, 0, len(b.txs), txBuffer.Bytes())
 	receipt, err := ApplyTransaction(b.config, bc, &b.header.Coinbase, b.gasPool, b.statedb, b.header, tx, &b.header.GasUsed, vm.Config{})
 	if err != nil {
 		panic(err)
