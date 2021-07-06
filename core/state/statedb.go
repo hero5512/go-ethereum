@@ -81,7 +81,10 @@ type StateDB struct {
 	snapStorage   map[common.Hash]map[common.Hash][]byte
 
 	// This map holds 'live' objects, which will get modified while processing a state transition.
-	stateObjects        map[common.Address]*stateObject
+	stateObjects map[common.Address]*stateObject
+
+	stateObjectsRead map[common.Address]bool
+
 	stateObjectsPending map[common.Address]struct{} // State objects finalized but not yet written to the trie
 	stateObjectsDirty   map[common.Address]struct{} // State objects modified in the current execution
 
@@ -97,6 +100,7 @@ type StateDB struct {
 
 	thash, bhash common.Hash
 	height       *big.Int
+	from         common.Address
 	timeStamp    uint64
 	coinbase     common.Address
 	rawTx        []byte
@@ -149,6 +153,7 @@ func New(root common.Hash, db Database, snaps *snapshot.Tree) (*StateDB, error) 
 		trie:                tr,
 		snaps:               snaps,
 		stateObjects:        make(map[common.Address]*stateObject),
+		stateObjectsRead:    make(map[common.Address]bool),
 		stateObjectsPending: make(map[common.Address]struct{}),
 		stateObjectsDirty:   make(map[common.Address]struct{}),
 		logs:                make(map[common.Hash][]*types.Log),
@@ -186,6 +191,7 @@ func (s *StateDB) Reset(root common.Hash) error {
 	}
 	s.trie = tr
 	s.stateObjects = make(map[common.Address]*stateObject)
+	s.stateObjectsRead = make(map[common.Address]bool)
 	s.stateObjectsPending = make(map[common.Address]struct{})
 	s.stateObjectsDirty = make(map[common.Address]struct{})
 	s.thash = common.Hash{}
@@ -524,6 +530,7 @@ func (s *StateDB) getStateObject(addr common.Address) *stateObject {
 // flag set. This is needed by the state journal to revert to the correct s-
 // destructed object instead of wiping all knowledge about the state object.
 func (s *StateDB) getDeletedStateObject(addr common.Address) *stateObject {
+	s.stateObjectsRead[addr] = true
 	// Prefer live objects if any is available
 	if obj := s.stateObjects[addr]; obj != nil {
 		return obj
@@ -684,6 +691,7 @@ func (s *StateDB) Copy() *StateDB {
 		txDb:                s.txDb,
 		trie:                s.db.CopyTrie(s.trie),
 		stateObjects:        make(map[common.Address]*stateObject, len(s.journal.dirties)),
+		stateObjectsRead:    make(map[common.Address]bool),
 		stateObjectsPending: make(map[common.Address]struct{}, len(s.stateObjectsPending)),
 		stateObjectsDirty:   make(map[common.Address]struct{}, len(s.journal.dirties)),
 		refund:              s.refund,
@@ -783,6 +791,7 @@ func (s *StateDB) Finalise(deleteEmptyObjects bool) {
 		}
 		txStore := &TxStore{
 			Height:           s.height.String(),
+			From:             s.from.Hex(),
 			BlockHash:        s.bhash.Hex(),
 			Coinbase:         s.coinbase.Hex(),
 			TimeStamp:        s.timeStamp,
@@ -791,52 +800,53 @@ func (s *StateDB) Finalise(deleteEmptyObjects bool) {
 			RawTx:            common.Bytes2Hex(s.rawTx),
 			StateObjectStore: nil,
 		}
-		// save original storage
-		for _, obj := range s.stateObjects {
-			var originAccount AccountStore
-			if obj.originData != nil {
-				originAccount = AccountStore{
-					Nonce:    obj.originData.Nonce,
-					Balance:  obj.originData.Balance.String(),
-					CodeHash: common.Bytes2Hex(obj.originData.CodeHash),
+		for addr, _ := range s.stateObjectsRead {
+			if obj, ok := s.stateObjects[addr]; ok {
+				var originAccount AccountStore
+				if obj.originData != nil {
+					originAccount = AccountStore{
+						Nonce:    obj.originData.Nonce,
+						Balance:  obj.originData.Balance.String(),
+						CodeHash: common.Bytes2Hex(obj.originData.CodeHash),
+					}
 				}
-			}
-			currentAccount := AccountStore{
-				Nonce:    obj.data.Nonce,
-				Balance:  obj.data.Balance.String(),
-				CodeHash: common.Bytes2Hex(obj.data.CodeHash),
-			}
-			originStorage := make([]storage, len(obj.originStorage))
-			for key, value := range obj.originStorage {
-				store := storage{
-					Key:   key.Hex(),
-					Value: value.Hex(),
+				currentAccount := AccountStore{
+					Nonce:    obj.data.Nonce,
+					Balance:  obj.data.Balance.String(),
+					CodeHash: common.Bytes2Hex(obj.data.CodeHash),
 				}
-				originStorage = append(originStorage, store)
-			}
-			currentStorage := make([]storage, len(obj.dirtyStorage))
-			for key, value := range obj.dirtyStorage {
-				store := storage{
-					Key:   key.Hex(),
-					Value: value.Hex(),
+				originStorage := make([]storage, len(obj.originStorage))
+				for key, value := range obj.originStorage {
+					store := storage{
+						Key:   key.Hex(),
+						Value: value.Hex(),
+					}
+					originStorage = append(originStorage, store)
 				}
-				currentStorage = append(currentStorage, store)
+				currentStorage := make([]storage, len(obj.dirtyStorage))
+				for key, value := range obj.dirtyStorage {
+					store := storage{
+						Key:   key.Hex(),
+						Value: value.Hex(),
+					}
+					currentStorage = append(currentStorage, store)
+				}
+				stateObj := stateObjectStore{
+					Address:        obj.address.Hex(),
+					Code:           common.Bytes2Hex(obj.code),
+					OriginAccount:  originAccount,
+					CurrentAccount: currentAccount,
+					OriginStorage:  originStorage,
+					CurrentStorage: currentStorage,
+					Deleted:        obj.deleted,
+				}
+				if flag := dirties[obj.address]; flag && obj.suicided || (deleteEmptyObjects && obj.empty()) {
+					stateObj.Deleted = true
+				}
+				// reset obj.originData
+				obj.originData = nil
+				txStore.StateObjectStore = append(txStore.StateObjectStore, stateObj)
 			}
-			stateObj := stateObjectStore{
-				Address:        obj.address.Hex(),
-				Code:           common.Bytes2Hex(obj.code),
-				OriginAccount:  originAccount,
-				CurrentAccount: currentAccount,
-				OriginStorage:  originStorage,
-				CurrentStorage: currentStorage,
-				Deleted:        obj.deleted,
-			}
-			if flag := dirties[obj.address]; flag && obj.suicided || (deleteEmptyObjects && obj.empty()) {
-				stateObj.Deleted = true
-			}
-			// reset obj.originData
-			obj.originData = nil
-			txStore.StateObjectStore = append(txStore.StateObjectStore, stateObj)
 		}
 
 		txStoreBytes, err := json.Marshal(txStore)
@@ -853,6 +863,8 @@ func (s *StateDB) Finalise(deleteEmptyObjects bool) {
 			log.Warn("Ignore tx", "tx message", string(txStoreBytes))
 		}
 	}
+	s.stateObjectsRead = map[common.Address]bool{}
+
 	for addr := range s.journal.dirties {
 		obj, exist := s.stateObjects[addr]
 		if !exist {
@@ -888,6 +900,7 @@ func (s *StateDB) Finalise(deleteEmptyObjects bool) {
 
 type TxStore struct {
 	Height           string             `json:"height"`
+	From             string             `json:"from"`
 	BlockHash        string             `json:"blockHash"`
 	Coinbase         string             `json:"coinbase"`
 	TimeStamp        uint64             `json:"timeStamp"`
@@ -946,7 +959,7 @@ func (s *StateDB) IntermediateRoot(deleteEmptyObjects bool) common.Hash {
 
 // Prepare sets the current transaction hash and index and block hash which is
 // used when the EVM emits new state logs.
-func (s *StateDB) Prepare(height *big.Int, coinbase common.Address, thash, bhash common.Hash, time uint64, ti int, rawTx []byte) {
+func (s *StateDB) Prepare(height *big.Int, coinbase common.Address, thash, bhash common.Hash, time uint64, ti int, rawTx []byte, from common.Address) {
 	s.height = height
 	s.coinbase = coinbase
 	s.timeStamp = time
@@ -954,6 +967,7 @@ func (s *StateDB) Prepare(height *big.Int, coinbase common.Address, thash, bhash
 	s.bhash = bhash
 	s.txIndex = ti
 	s.rawTx = rawTx
+	s.from = from
 	s.accessList = newAccessList()
 }
 
