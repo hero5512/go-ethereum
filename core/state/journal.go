@@ -27,6 +27,7 @@ import (
 type journalEntry interface {
 	// revert undoes the changes introduced by this journal entry.
 	revert(*StateDB)
+	revert2(*DiffStateDb)
 
 	// dirtied returns the Ethereum address modified by this journal entry.
 	dirtied() *common.Address
@@ -61,6 +62,23 @@ func (j *journal) revert(statedb *StateDB, snapshot int) {
 	for i := len(j.entries) - 1; i >= snapshot; i-- {
 		// Undo the changes made by the operation
 		j.entries[i].revert(statedb)
+
+		// Drop any dirty tracking induced by the change
+		if addr := j.entries[i].dirtied(); addr != nil {
+			if j.dirties[*addr]--; j.dirties[*addr] == 0 {
+				delete(j.dirties, *addr)
+			}
+		}
+	}
+	j.entries = j.entries[:snapshot]
+}
+
+// revert undoes a batch of journalled modifications along with any reverted
+// dirty handling too.
+func (j *journal) revert2(statedb *DiffStateDb, snapshot int) {
+	for i := len(j.entries) - 1; i >= snapshot; i-- {
+		// Undo the changes made by the operation
+		j.entries[i].revert2(statedb)
 
 		// Drop any dirty tracking induced by the change
 		if addr := j.entries[i].dirtied(); addr != nil {
@@ -145,6 +163,12 @@ func (ch createObjectChange) revert(s *StateDB) {
 	delete(s.stateObjectsDirty, *ch.account)
 }
 
+func (ch createObjectChange) revert2(s *DiffStateDb) {
+	delete(s.stateObjects, *ch.account)
+	delete(s.stateObjectsDirty, *ch.account)
+	delete(s.localObject, *ch.account)
+}
+
 func (ch createObjectChange) dirtied() *common.Address {
 	return ch.account
 }
@@ -156,7 +180,18 @@ func (ch resetObjectChange) revert(s *StateDB) {
 	}
 }
 
+func (ch resetObjectChange) revert2(s *DiffStateDb) {
+	s.setStateObject(ch.prev)
+	if !ch.prevdestruct && s.snap != nil {
+		delete(s.snapDestructs, ch.prev.addrHash)
+	}
+}
+
 func (ch resetObjectChange) dirtied() *common.Address {
+	return nil
+}
+
+func (ch resetObjectChange) dirtied2() *common.Address {
 	return nil
 }
 
@@ -165,6 +200,18 @@ func (ch suicideChange) revert(s *StateDB) {
 	if obj != nil {
 		obj.suicided = ch.prev
 		obj.setBalance(ch.prevbalance)
+	}
+}
+
+func (ch suicideChange) revert2(s *DiffStateDb) {
+	obj := s.getStateObject(*ch.account)
+	if obj != nil {
+		obj.suicided = ch.prev
+		obj.setBalance(ch.prevbalance)
+	}
+	localObj, exist := s.localObject[*ch.account]
+	if exist {
+		localObj.currentAccount.Balance = ch.prevbalance
 	}
 }
 
@@ -177,11 +224,22 @@ var ripemd = common.HexToAddress("0000000000000000000000000000000000000003")
 func (ch touchChange) revert(s *StateDB) {
 }
 
+func (ch touchChange) revert2(s *DiffStateDb) {
+}
+
 func (ch touchChange) dirtied() *common.Address {
 	return ch.account
 }
 
 func (ch balanceChange) revert(s *StateDB) {
+	s.getStateObject(*ch.account).setBalance(ch.prev)
+}
+
+func (ch balanceChange) revert2(s *DiffStateDb) {
+	obj, exist := s.localObject[*ch.account]
+	if exist {
+		obj.currentAccount.Balance = ch.prev
+	}
 	s.getStateObject(*ch.account).setBalance(ch.prev)
 }
 
@@ -193,11 +251,27 @@ func (ch nonceChange) revert(s *StateDB) {
 	s.getStateObject(*ch.account).setNonce(ch.prev)
 }
 
+func (ch nonceChange) revert2(s *DiffStateDb) {
+	obj, exist := s.localObject[*ch.account]
+	if exist {
+		obj.currentAccount.Nonce = ch.prev
+	}
+	s.getStateObject(*ch.account).setNonce(ch.prev)
+}
+
 func (ch nonceChange) dirtied() *common.Address {
 	return ch.account
 }
 
 func (ch codeChange) revert(s *StateDB) {
+	s.getStateObject(*ch.account).setCode(common.BytesToHash(ch.prevhash), ch.prevcode)
+}
+
+func (ch codeChange) revert2(s *DiffStateDb) {
+	obj, exist := s.localObject[*ch.account]
+	if exist {
+		obj.currentCode = ch.prevcode
+	}
 	s.getStateObject(*ch.account).setCode(common.BytesToHash(ch.prevhash), ch.prevcode)
 }
 
@@ -209,11 +283,23 @@ func (ch storageChange) revert(s *StateDB) {
 	s.getStateObject(*ch.account).setState(ch.key, ch.prevalue)
 }
 
+func (ch storageChange) revert2(s *DiffStateDb) {
+	obj, exist := s.localObject[*ch.account]
+	if exist {
+		obj.currentStorage[ch.key] = ch.prevalue
+	}
+	s.getStateObject(*ch.account).setState(ch.key, ch.prevalue)
+}
+
 func (ch storageChange) dirtied() *common.Address {
 	return ch.account
 }
 
 func (ch refundChange) revert(s *StateDB) {
+	s.refund = ch.prev
+}
+
+func (ch refundChange) revert2(s *DiffStateDb) {
 	s.refund = ch.prev
 }
 
@@ -231,11 +317,25 @@ func (ch addLogChange) revert(s *StateDB) {
 	s.logSize--
 }
 
+func (ch addLogChange) revert2(s *DiffStateDb) {
+	logs := s.logs[ch.txhash]
+	if len(logs) == 1 {
+		delete(s.logs, ch.txhash)
+	} else {
+		s.logs[ch.txhash] = logs[:len(logs)-1]
+	}
+	s.logSize--
+}
+
 func (ch addLogChange) dirtied() *common.Address {
 	return nil
 }
 
 func (ch addPreimageChange) revert(s *StateDB) {
+	delete(s.preimages, ch.hash)
+}
+
+func (ch addPreimageChange) revert2(s *DiffStateDb) {
 	delete(s.preimages, ch.hash)
 }
 
@@ -256,11 +356,28 @@ func (ch accessListAddAccountChange) revert(s *StateDB) {
 	s.accessList.DeleteAddress(*ch.address)
 }
 
+func (ch accessListAddAccountChange) revert2(s *DiffStateDb) {
+	/*
+		One important invariant here, is that whenever a (addr, slot) is added, if the
+		addr is not already present, the add causes two journal entries:
+		- one for the address,
+		- one for the (address,slot)
+		Therefore, when unrolling the change, we can always blindly delete the
+		(addr) at this point, since no storage adds can remain when come upon
+		a single (addr) change.
+	*/
+	s.accessList.DeleteAddress(*ch.address)
+}
+
 func (ch accessListAddAccountChange) dirtied() *common.Address {
 	return nil
 }
 
 func (ch accessListAddSlotChange) revert(s *StateDB) {
+	s.accessList.DeleteSlot(*ch.address, *ch.slot)
+}
+
+func (ch accessListAddSlotChange) revert2(s *DiffStateDb) {
 	s.accessList.DeleteSlot(*ch.address, *ch.slot)
 }
 

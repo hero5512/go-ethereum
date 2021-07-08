@@ -356,7 +356,7 @@ const AccountRangeMaxResults = 256
 
 // AccountRange enumerates all accounts in the given block and start point in paging request
 func (api *PublicDebugAPI) AccountRange(blockNrOrHash rpc.BlockNumberOrHash, start []byte, maxResults int, nocode, nostorage, incompletes bool) (state.IteratorDump, error) {
-	var stateDb *state.StateDB
+	var stateDb *state.DiffStateDb
 	var err error
 
 	if number, ok := blockNrOrHash.Number(); ok {

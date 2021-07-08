@@ -17,7 +17,9 @@
 package core
 
 import (
+	"bytes"
 	"fmt"
+	"github.com/prometheus/common/log"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -37,7 +39,7 @@ type BlockGen struct {
 	parent  *types.Block
 	chain   []*types.Block
 	header  *types.Header
-	statedb *state.StateDB
+	statedb *state.DiffStateDb
 
 	gasPool  *GasPool
 	txs      []*types.Transaction
@@ -102,7 +104,16 @@ func (b *BlockGen) AddTxWithChain(bc *BlockChain, tx *types.Transaction) {
 	if b.gasPool == nil {
 		b.SetCoinbase(common.Address{})
 	}
-	b.statedb.Prepare(tx.Hash(), common.Hash{}, len(b.txs))
+	txBuffer := new(bytes.Buffer)
+	err := tx.EncodeRLP(txBuffer)
+	if err != nil {
+		log.Errorf("AddTxWithChain", "err", err)
+	}
+	msg, err := tx.AsMessage(types.MakeSigner(b.config, b.header.Number))
+	if err != nil {
+		log.Error("BlockGen.AddTxWithChain", "err", err)
+	}
+	b.statedb.Prepare(new(big.Int).SetUint64(0), common.Address{}, tx.Hash(), common.Hash{}, 0, len(b.txs), txBuffer.Bytes(), msg.From())
 	receipt, err := ApplyTransaction(b.config, bc, &b.header.Coinbase, b.gasPool, b.statedb, b.header, tx, &b.header.GasUsed, vm.Config{})
 	if err != nil {
 		panic(err)
@@ -191,7 +202,7 @@ func GenerateChain(config *params.ChainConfig, parent *types.Block, engine conse
 	}
 	blocks, receipts := make(types.Blocks, n), make([]types.Receipts, n)
 	chainreader := &fakeChainReader{config: config}
-	genblock := func(i int, parent *types.Block, statedb *state.StateDB) (*types.Block, types.Receipts) {
+	genblock := func(i int, parent *types.Block, statedb *state.DiffStateDb) (*types.Block, types.Receipts) {
 		b := &BlockGen{i: i, chain: blocks, parent: parent, statedb: statedb, config: config, engine: engine}
 		b.header = makeHeader(chainreader, parent, statedb, b.engine)
 
@@ -228,7 +239,7 @@ func GenerateChain(config *params.ChainConfig, parent *types.Block, engine conse
 		return nil, nil
 	}
 	for i := 0; i < n; i++ {
-		statedb, err := state.New(parent.Root(), state.NewDatabase(db), nil)
+		statedb, err := state.NewWithTxDb(parent.Root(), state.NewDatabase(db), nil, nil)
 		if err != nil {
 			panic(err)
 		}
@@ -240,7 +251,7 @@ func GenerateChain(config *params.ChainConfig, parent *types.Block, engine conse
 	return blocks, receipts
 }
 
-func makeHeader(chain consensus.ChainReader, parent *types.Block, state *state.StateDB, engine consensus.Engine) *types.Header {
+func makeHeader(chain consensus.ChainReader, parent *types.Block, state *state.DiffStateDb, engine consensus.Engine) *types.Header {
 	var time uint64
 	if parent.Time() == 0 {
 		time = 10

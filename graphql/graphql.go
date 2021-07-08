@@ -47,7 +47,7 @@ type Account struct {
 }
 
 // getState fetches the StateDB object for an account.
-func (a *Account) getState(ctx context.Context) (*state.StateDB, error) {
+func (a *Account) getState(ctx context.Context) (*state.DiffStateDb, error) {
 	state, _, err := a.backend.StateAndHeaderByNumberOrHash(ctx, a.blockNrOrHash)
 	return state, err
 }

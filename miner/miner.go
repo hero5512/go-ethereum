@@ -180,7 +180,7 @@ func (miner *Miner) SetRecommitInterval(interval time.Duration) {
 }
 
 // Pending returns the currently pending block and associated state.
-func (miner *Miner) Pending() (*types.Block, *state.StateDB) {
+func (miner *Miner) Pending() (*types.Block, *state.DiffStateDb) {
 	return miner.worker.pending()
 }
 

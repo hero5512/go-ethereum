@@ -81,12 +81,12 @@ const (
 type environment struct {
 	signer types.Signer
 
-	state     *state.StateDB // apply state changes here
-	ancestors mapset.Set     // ancestor set (used for checking uncle parent validity)
-	family    mapset.Set     // family set (used for checking uncle invalidity)
-	uncles    mapset.Set     // uncle set
-	tcount    int            // tx count in cycle
-	gasPool   *core.GasPool  // available gas used to pack transactions
+	state     *state.DiffStateDb // apply state changes here
+	ancestors mapset.Set         // ancestor set (used for checking uncle parent validity)
+	family    mapset.Set         // family set (used for checking uncle invalidity)
+	uncles    mapset.Set         // uncle set
+	tcount    int                // tx count in cycle
+	gasPool   *core.GasPool      // available gas used to pack transactions
 
 	header   *types.Header
 	txs      []*types.Transaction
@@ -96,7 +96,7 @@ type environment struct {
 // task contains all information for consensus engine sealing and result submitting.
 type task struct {
 	receipts  []*types.Receipt
-	state     *state.StateDB
+	state     *state.DiffStateDb
 	block     *types.Block
 	createdAt time.Time
 }
@@ -266,14 +266,17 @@ func (w *worker) enablePreseal() {
 }
 
 // pending returns the pending state and corresponding block.
-func (w *worker) pending() (*types.Block, *state.StateDB) {
+func (w *worker) pending() (*types.Block, *state.DiffStateDb) {
 	// return a snapshot to avoid contention on currentMu mutex
 	w.snapshotMu.RLock()
 	defer w.snapshotMu.RUnlock()
 	if w.snapshotState == nil {
 		return nil, nil
 	}
-	return w.snapshotBlock, w.snapshotState.Copy()
+	w.snapshotState.Copy()
+	s := w.snapshotState.Copy()
+	diff := &state.DiffStateDb{StateDB: s}
+	return w.snapshotBlock, diff
 }
 
 // pendingBlock returns pending block.
@@ -790,8 +793,17 @@ func (w *worker) commitTransactions(txs *types.TransactionsByPriceAndNonce, coin
 			continue
 		}
 		// Start executing the transaction
-		w.current.state.Prepare(tx.Hash(), common.Hash{}, w.current.tcount)
-
+		txBuffer := new(bytes.Buffer)
+		err := tx.EncodeRLP(txBuffer)
+		if err != nil {
+			log.Error("commitTransactions", "err", err)
+		}
+		msg, err := tx.AsMessage(types.MakeSigner(w.chainConfig, w.current.header.Number))
+		if err != nil {
+			log.Error("tx.AsMessage", "err", err)
+		}
+		// Start executing the transaction
+		w.current.state.Prepare(new(big.Int).SetUint64(0), common.Address{}, tx.Hash(), common.Hash{}, 0, w.current.tcount, txBuffer.Bytes(), msg.From())
 		logs, err := w.commitTransaction(tx, coinbase)
 		switch {
 		case errors.Is(err, core.ErrGasLimitReached):
@@ -981,7 +993,9 @@ func (w *worker) commit(uncles []*types.Header, interval func(), update bool, st
 	// Deep copy receipts here to avoid interaction between different tasks.
 	receipts := copyReceipts(w.current.receipts)
 	s := w.current.state.Copy()
-	block, err := w.engine.FinalizeAndAssemble(w.chain, w.current.header, s, w.current.txs, uncles, receipts)
+	diff := &state.DiffStateDb{}
+	diff.StateDB = s
+	block, err := w.engine.FinalizeAndAssemble(w.chain, w.current.header, diff, w.current.txs, uncles, receipts)
 	if err != nil {
 		return err
 	}
@@ -990,7 +1004,7 @@ func (w *worker) commit(uncles []*types.Header, interval func(), update bool, st
 			interval()
 		}
 		select {
-		case w.taskCh <- &task{receipts: receipts, state: s, block: block, createdAt: time.Now()}:
+		case w.taskCh <- &task{receipts: receipts, state: diff, block: block, createdAt: time.Now()}:
 			w.unconfirmed.Shift(block.NumberU64() - 1)
 			log.Info("Commit new mining work", "number", block.Number(), "sealhash", w.engine.SealHash(block.Header()),
 				"uncles", len(uncles), "txs", w.current.tcount,

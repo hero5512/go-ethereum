@@ -17,6 +17,7 @@
 package t8ntool
 
 import (
+	"bytes"
 	"fmt"
 	"math/big"
 	"os"
@@ -82,7 +83,7 @@ type stEnvMarshaling struct {
 // Apply applies a set of transactions to a pre-state
 func (pre *Prestate) Apply(vmConfig vm.Config, chainConfig *params.ChainConfig,
 	txs types.Transactions, miningReward int64,
-	getTracerFn func(txIndex int, txHash common.Hash) (tracer vm.Tracer, err error)) (*state.StateDB, *ExecutionResult, error) {
+	getTracerFn func(txIndex int, txHash common.Hash) (tracer vm.Tracer, err error)) (*state.DiffStateDb, *ExecutionResult, error) {
 
 	// Capture errors for BLOCKHASH operation, if we haven't been supplied the
 	// required blockhashes
@@ -141,7 +142,12 @@ func (pre *Prestate) Apply(vmConfig vm.Config, chainConfig *params.ChainConfig,
 		}
 		vmConfig.Tracer = tracer
 		vmConfig.Debug = (tracer != nil)
-		statedb.Prepare(tx.Hash(), blockHash, txIndex)
+		txBuffer := new(bytes.Buffer)
+		err = tx.EncodeRLP(txBuffer)
+		if err != nil {
+			log.Error("AddTxWithChain", "err", err)
+		}
+		statedb.Prepare(new(big.Int).SetUint64(0), common.Address{}, tx.Hash(), blockHash, 0, txIndex, txBuffer.Bytes(), msg.From())
 		txContext := core.NewEVMTxContext(msg)
 
 		evm := vm.NewEVM(vmContext, txContext, statedb, chainConfig, vmConfig)
@@ -239,9 +245,9 @@ func (pre *Prestate) Apply(vmConfig vm.Config, chainConfig *params.ChainConfig,
 	return statedb, execRs, nil
 }
 
-func MakePreState(db ethdb.Database, accounts core.GenesisAlloc) *state.StateDB {
+func MakePreState(db ethdb.Database, accounts core.GenesisAlloc) *state.DiffStateDb {
 	sdb := state.NewDatabase(db)
-	statedb, _ := state.New(common.Hash{}, sdb, nil)
+	statedb, _ := state.NewWithTxDb(common.Hash{}, sdb, nil, nil)
 	for addr, a := range accounts {
 		statedb.SetCode(addr, a.Code)
 		statedb.SetNonce(addr, a.Nonce)
@@ -252,7 +258,7 @@ func MakePreState(db ethdb.Database, accounts core.GenesisAlloc) *state.StateDB 
 	}
 	// Commit and re-open to start with a clean state.
 	root, _ := statedb.Commit(false)
-	statedb, _ = state.New(root, sdb, nil)
+	statedb, _ = state.NewWithTxDb(root, sdb, nil, nil)
 	return statedb
 }
 

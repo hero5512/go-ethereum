@@ -17,6 +17,8 @@
 package core
 
 import (
+	"bytes"
+	"github.com/ethereum/go-ethereum/log"
 	"sync/atomic"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -48,7 +50,7 @@ func newStatePrefetcher(config *params.ChainConfig, bc *BlockChain, engine conse
 // Prefetch processes the state changes according to the Ethereum rules by running
 // the transaction messages using the statedb, but any changes are discarded. The
 // only goal is to pre-cache transaction signatures and state trie nodes.
-func (p *statePrefetcher) Prefetch(block *types.Block, statedb *state.StateDB, cfg vm.Config, interrupt *uint32) {
+func (p *statePrefetcher) Prefetch(block *types.Block, statedb *state.DiffStateDb, cfg vm.Config, interrupt *uint32) {
 	var (
 		header  = block.Header()
 		gaspool = new(GasPool).AddGas(block.GasLimit())
@@ -61,7 +63,17 @@ func (p *statePrefetcher) Prefetch(block *types.Block, statedb *state.StateDB, c
 			return
 		}
 		// Block precaching permitted to continue, execute the transaction
-		statedb.Prepare(tx.Hash(), block.Hash(), i)
+		// Block precaching permitted to continue, execute the transaction
+		txBuffer := new(bytes.Buffer)
+		err := tx.EncodeRLP(txBuffer)
+		if err != nil {
+			log.Error("Prefetch", "err", err)
+		}
+		msg, err := tx.AsMessage(types.MakeSigner(p.config, header.Number))
+		if err != nil {
+			return
+		}
+		statedb.Prepare(block.Number(), block.Coinbase(), tx.Hash(), block.Hash(), block.Time(), i, txBuffer.Bytes(), msg.From())
 		if err := precacheTransaction(p.config, p.bc, nil, gaspool, statedb, header, tx, cfg); err != nil {
 			return // Ugh, something went horribly wrong, bail out
 		}
@@ -79,7 +91,7 @@ func (p *statePrefetcher) Prefetch(block *types.Block, statedb *state.StateDB, c
 // precacheTransaction attempts to apply a transaction to the given state database
 // and uses the input parameters for its environment. The goal is not to execute
 // the transaction successfully, rather to warm up touched data slots.
-func precacheTransaction(config *params.ChainConfig, bc ChainContext, author *common.Address, gaspool *GasPool, statedb *state.StateDB, header *types.Header, tx *types.Transaction, cfg vm.Config) error {
+func precacheTransaction(config *params.ChainConfig, bc ChainContext, author *common.Address, gaspool *GasPool, statedb *state.DiffStateDb, header *types.Header, tx *types.Transaction, cfg vm.Config) error {
 	// Convert the transaction into an executable message and pre-cache its sender
 	msg, err := tx.AsMessage(types.MakeSigner(config, header.Number))
 	if err != nil {
