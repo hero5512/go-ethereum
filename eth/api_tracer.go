@@ -280,7 +280,10 @@ func (api *PrivateDebugAPI) traceChain(ctx context.Context, start, end *types.Bl
 			if number > origin {
 				txs := block.Transactions()
 				s := statedb.Copy()
-				diff := &state.DiffStateDb{StateDB: s}
+				diff := &state.DiffStateDb{
+					StateDB:     s,
+					LocalObject: make(map[common.Address]*state.LocalObject),
+				}
 				select {
 				case tasks <- &blockTraceTask{statedb: diff, block: block, rootref: proot, results: make([]*txTraceResult, len(txs))}:
 				case <-notifier.Closed():
@@ -494,7 +497,10 @@ func (api *PrivateDebugAPI) traceBlock(ctx context.Context, block *types.Block, 
 	for i, tx := range txs {
 		// Send the trace task over for execution
 		s := statedb.Copy()
-		diff := &state.DiffStateDb{StateDB: s}
+		diff := &state.DiffStateDb{
+			StateDB:     s,
+			LocalObject: make(map[common.Address]*state.LocalObject),
+		}
 		jobs <- &txTraceTask{statedb: diff, index: i}
 
 		// Generate the next state snapshot fast without tracing

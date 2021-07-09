@@ -275,7 +275,10 @@ func (w *worker) pending() (*types.Block, *state.DiffStateDb) {
 	}
 	w.snapshotState.Copy()
 	s := w.snapshotState.Copy()
-	diff := &state.DiffStateDb{StateDB: s}
+	diff := &state.DiffStateDb{
+		StateDB:     s,
+		LocalObject: make(map[common.Address]*state.LocalObject),
+	}
 	return w.snapshotBlock, diff
 }
 
@@ -993,8 +996,10 @@ func (w *worker) commit(uncles []*types.Header, interval func(), update bool, st
 	// Deep copy receipts here to avoid interaction between different tasks.
 	receipts := copyReceipts(w.current.receipts)
 	s := w.current.state.Copy()
-	diff := &state.DiffStateDb{}
-	diff.StateDB = s
+	diff := &state.DiffStateDb{
+		StateDB:     s,
+		LocalObject: make(map[common.Address]*state.LocalObject),
+	}
 	block, err := w.engine.FinalizeAndAssemble(w.chain, w.current.header, diff, w.current.txs, uncles, receipts)
 	if err != nil {
 		return err

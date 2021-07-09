@@ -166,7 +166,7 @@ func (ch createObjectChange) revert(s *StateDB) {
 func (ch createObjectChange) revert2(s *DiffStateDb) {
 	delete(s.stateObjects, *ch.account)
 	delete(s.stateObjectsDirty, *ch.account)
-	delete(s.localObject, *ch.account)
+	delete(s.LocalObject, *ch.account)
 }
 
 func (ch createObjectChange) dirtied() *common.Address {
@@ -209,7 +209,7 @@ func (ch suicideChange) revert2(s *DiffStateDb) {
 		obj.suicided = ch.prev
 		obj.setBalance(ch.prevbalance)
 	}
-	localObj, exist := s.localObject[*ch.account]
+	localObj, exist := s.LocalObject[*ch.account]
 	if exist {
 		localObj.currentAccount.Balance = ch.prevbalance
 	}
@@ -236,7 +236,7 @@ func (ch balanceChange) revert(s *StateDB) {
 }
 
 func (ch balanceChange) revert2(s *DiffStateDb) {
-	obj, exist := s.localObject[*ch.account]
+	obj, exist := s.LocalObject[*ch.account]
 	if exist {
 		obj.currentAccount.Balance = ch.prev
 	}
@@ -252,7 +252,7 @@ func (ch nonceChange) revert(s *StateDB) {
 }
 
 func (ch nonceChange) revert2(s *DiffStateDb) {
-	obj, exist := s.localObject[*ch.account]
+	obj, exist := s.LocalObject[*ch.account]
 	if exist {
 		obj.currentAccount.Nonce = ch.prev
 	}
@@ -268,9 +268,9 @@ func (ch codeChange) revert(s *StateDB) {
 }
 
 func (ch codeChange) revert2(s *DiffStateDb) {
-	obj, exist := s.localObject[*ch.account]
+	obj, exist := s.LocalObject[*ch.account]
 	if exist {
-		obj.currentCode = ch.prevcode
+		obj.code = ch.prevcode
 	}
 	s.getStateObject(*ch.account).setCode(common.BytesToHash(ch.prevhash), ch.prevcode)
 }
@@ -284,7 +284,7 @@ func (ch storageChange) revert(s *StateDB) {
 }
 
 func (ch storageChange) revert2(s *DiffStateDb) {
-	obj, exist := s.localObject[*ch.account]
+	obj, exist := s.LocalObject[*ch.account]
 	if exist {
 		obj.currentStorage[ch.key] = ch.prevalue
 	}

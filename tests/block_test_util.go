@@ -142,7 +142,7 @@ func (t *BlockTest) Run(snapshotter bool) error {
 	if err != nil {
 		return err
 	}
-	if err = t.validatePostState(newDB); err != nil {
+	if err = t.validatePostState(newDB.StateDB); err != nil {
 		return fmt.Errorf("post state validation failed: %v", err)
 	}
 	// Cross-check the snapshot-to-hash against the trie hash
