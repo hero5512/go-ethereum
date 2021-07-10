@@ -174,9 +174,6 @@ func (s *DiffStateDb) GetCodeHash(addr common.Address) common.Hash {
 }
 
 func (s *DiffStateDb) GetCode(addr common.Address) []byte {
-	if s.thash.Hex() == "0x281664f16fb1b66fb035eefa771685ea570cd22edc6a79207e1f9adf1c9c921a" {
-		log.Info("test")
-	}
 	stateObject := s.getStateObject(addr)
 	if stateObject != nil {
 		code := stateObject.Code(s.db)
@@ -196,9 +193,6 @@ func (s *DiffStateDb) GetCode(addr common.Address) []byte {
 }
 
 func (s *DiffStateDb) SetCode(addr common.Address, code []byte) {
-	if s.thash.Hex() == "0x281664f16fb1b66fb035eefa771685ea570cd22edc6a79207e1f9adf1c9c921a" {
-		log.Info("test")
-	}
 	stateObject := s.GetOrNewStateObject(addr)
 	if stateObject != nil {
 		obj, exist := s.LocalObject[addr]
