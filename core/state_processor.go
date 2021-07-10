@@ -17,7 +17,9 @@
 package core
 
 import (
+	"bytes"
 	"fmt"
+	"github.com/ethereum/go-ethereum/log"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/consensus"
@@ -75,7 +77,15 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 		if err != nil {
 			return nil, nil, 0, err
 		}
-		statedb.Prepare(tx.Hash(), block.Hash(), i)
+		txBuffer := new(bytes.Buffer)
+		err = tx.EncodeRLP(txBuffer)
+		if err != nil {
+			log.Error("Process", "err", err)
+		}
+		statedb.Prepare(block.Number(), block.Coinbase(), tx.Hash(), block.Hash(), block.Time(), i, txBuffer.Bytes(), msg.From())
+		if tx.Hash().String() == "0x54ad70894edf7a04c591cd4e0f36d3a5f6e91f7c686e37e6f91161668ec120c6" {
+			log.Info("test")
+		}
 		receipt, err := applyTransaction(msg, p.config, p.bc, nil, gp, statedb, header, tx, usedGas, vmenv)
 		if err != nil {
 			return nil, nil, 0, fmt.Errorf("could not apply tx %d [%v]: %w", i, tx.Hash().Hex(), err)
@@ -90,22 +100,23 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 }
 
 func applyTransaction(msg types.Message, config *params.ChainConfig, bc ChainContext, author *common.Address, gp *GasPool, statedb *state.StateDB, header *types.Header, tx *types.Transaction, usedGas *uint64, evm *vm.EVM) (*types.Receipt, error) {
+	diffDb := state.NewDiffDb(statedb)
 	// Create a new context to be used in the EVM environment
 	txContext := NewEVMTxContext(msg)
 	// Add addresses to access list if applicable
 	if config.IsYoloV2(header.Number) {
-		statedb.AddAddressToAccessList(msg.From())
+		diffDb.AddAddressToAccessList(msg.From())
 		if dst := msg.To(); dst != nil {
-			statedb.AddAddressToAccessList(*dst)
+			diffDb.AddAddressToAccessList(*dst)
 			// If it's a create-tx, the destination will be added inside evm.create
 		}
 		for _, addr := range evm.ActivePrecompiles() {
-			statedb.AddAddressToAccessList(addr)
+			diffDb.AddAddressToAccessList(addr)
 		}
 	}
 
 	// Update the evm with the new transaction context.
-	evm.Reset(txContext, statedb)
+	evm.Reset(txContext, diffDb)
 	// Apply the transaction to the current state (included in the env)
 	result, err := ApplyMessage(evm, msg, gp)
 	if err != nil {
@@ -114,9 +125,9 @@ func applyTransaction(msg types.Message, config *params.ChainConfig, bc ChainCon
 	// Update the state with pending changes
 	var root []byte
 	if config.IsByzantium(header.Number) {
-		statedb.Finalise(true)
+		diffDb.Finalise(true)
 	} else {
-		root = statedb.IntermediateRoot(config.IsEIP158(header.Number)).Bytes()
+		root = diffDb.IntermediateRoot(config.IsEIP158(header.Number)).Bytes()
 	}
 	*usedGas += result.UsedGas
 
@@ -130,12 +141,12 @@ func applyTransaction(msg types.Message, config *params.ChainConfig, bc ChainCon
 		receipt.ContractAddress = crypto.CreateAddress(evm.TxContext.Origin, tx.Nonce())
 	}
 	// Set the receipt logs and create a bloom for filtering
-	receipt.Logs = statedb.GetLogs(tx.Hash())
+	receipt.Logs = diffDb.GetLogs(tx.Hash())
 	receipt.Bloom = types.CreateBloom(types.Receipts{receipt})
-	receipt.BlockHash = statedb.BlockHash()
+	receipt.BlockHash = diffDb.BlockHash()
 	receipt.BlockNumber = header.Number
-	receipt.TransactionIndex = uint(statedb.TxIndex())
-
+	receipt.TransactionIndex = uint(diffDb.TxIndex())
+	diffDb.Submit()
 	return receipt, err
 }
 

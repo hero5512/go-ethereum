@@ -17,7 +17,9 @@
 package core
 
 import (
+	"bytes"
 	"fmt"
+	"github.com/prometheus/common/log"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -102,7 +104,16 @@ func (b *BlockGen) AddTxWithChain(bc *BlockChain, tx *types.Transaction) {
 	if b.gasPool == nil {
 		b.SetCoinbase(common.Address{})
 	}
-	b.statedb.Prepare(tx.Hash(), common.Hash{}, len(b.txs))
+	txBuffer := new(bytes.Buffer)
+	err := tx.EncodeRLP(txBuffer)
+	if err != nil {
+		log.Errorf("AddTxWithChain", "err", err)
+	}
+	msg, err := tx.AsMessage(types.MakeSigner(b.config, b.header.Number))
+	if err != nil {
+		log.Error("BlockGen.AddTxWithChain", "err", err)
+	}
+	b.statedb.Prepare(new(big.Int).SetUint64(0), common.Address{}, tx.Hash(), common.Hash{}, 0, len(b.txs), txBuffer.Bytes(), msg.From())
 	receipt, err := ApplyTransaction(b.config, bc, &b.header.Coinbase, b.gasPool, b.statedb, b.header, tx, &b.header.GasUsed, vm.Config{})
 	if err != nil {
 		panic(err)

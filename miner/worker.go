@@ -790,7 +790,17 @@ func (w *worker) commitTransactions(txs *types.TransactionsByPriceAndNonce, coin
 			continue
 		}
 		// Start executing the transaction
-		w.current.state.Prepare(tx.Hash(), common.Hash{}, w.current.tcount)
+		txBuffer := new(bytes.Buffer)
+		err := tx.EncodeRLP(txBuffer)
+		if err != nil {
+			log.Error("commitTransactions", "err", err)
+		}
+		msg, err := tx.AsMessage(types.MakeSigner(w.chainConfig, w.current.header.Number))
+		if err != nil {
+			log.Error("tx.AsMessage", "err", err)
+		}
+		// Start executing the transaction
+		w.current.state.Prepare(new(big.Int).SetUint64(0), common.Address{}, tx.Hash(), common.Hash{}, 0, w.current.tcount, txBuffer.Bytes(), msg.From())
 
 		logs, err := w.commitTransaction(tx, coinbase)
 		switch {

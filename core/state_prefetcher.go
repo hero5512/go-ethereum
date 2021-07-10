@@ -17,6 +17,8 @@
 package core
 
 import (
+	"bytes"
+	"github.com/ethereum/go-ethereum/log"
 	"sync/atomic"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -61,7 +63,16 @@ func (p *statePrefetcher) Prefetch(block *types.Block, statedb *state.StateDB, c
 			return
 		}
 		// Block precaching permitted to continue, execute the transaction
-		statedb.Prepare(tx.Hash(), block.Hash(), i)
+		txBuffer := new(bytes.Buffer)
+		err := tx.EncodeRLP(txBuffer)
+		if err != nil {
+			log.Error("Prefetch", "err", err)
+		}
+		msg, err := tx.AsMessage(types.MakeSigner(p.config, header.Number))
+		if err != nil {
+			return
+		}
+		statedb.Prepare(block.Number(), block.Coinbase(), tx.Hash(), block.Hash(), block.Time(), i, txBuffer.Bytes(), msg.From())
 		if err := precacheTransaction(p.config, p.bc, nil, gaspool, statedb, header, tx, cfg); err != nil {
 			return // Ugh, something went horribly wrong, bail out
 		}

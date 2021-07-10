@@ -114,6 +114,22 @@ type StateDB struct {
 	SnapshotAccountReads time.Duration
 	SnapshotStorageReads time.Duration
 	SnapshotCommits      time.Duration
+
+	rawTx     []byte
+	height    *big.Int
+	coinbase  common.Address
+	timestamp uint64
+	from      common.Address
+	txDb      TxDB
+}
+
+func NewWithTxDb(root common.Hash, db Database, snaps *snapshot.Tree, txDb TxDB) (*StateDB, error) {
+	stateDb, err := New(root, db, snaps)
+	if err != nil {
+		return nil, err
+	}
+	stateDb.txDb = txDb
+	return stateDb, nil
 }
 
 // New creates a new state from a given trie.
@@ -805,11 +821,16 @@ func (s *StateDB) IntermediateRoot(deleteEmptyObjects bool) common.Hash {
 
 // Prepare sets the current transaction hash and index and block hash which is
 // used when the EVM emits new state logs.
-func (s *StateDB) Prepare(thash, bhash common.Hash, ti int) {
+func (s *StateDB) Prepare(height *big.Int, coinbase common.Address, thash, bhash common.Hash, time uint64, ti int, rawTx []byte, from common.Address) {
 	s.thash = thash
 	s.bhash = bhash
 	s.txIndex = ti
 	s.accessList = newAccessList()
+	s.height = height
+	s.coinbase = coinbase
+	s.timestamp = time
+	s.rawTx = rawTx
+	s.from = from
 }
 
 func (s *StateDB) clearJournalAndRefund() {
