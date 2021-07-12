@@ -19,6 +19,7 @@ package core
 import (
 	"bytes"
 	"github.com/ethereum/go-ethereum/log"
+	"math/big"
 	"sync/atomic"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -51,6 +52,15 @@ func newStatePrefetcher(config *params.ChainConfig, bc *BlockChain, engine conse
 // the transaction messages using the statedb, but any changes are discarded. The
 // only goal is to pre-cache transaction signatures and state trie nodes.
 func (p *statePrefetcher) Prefetch(block *types.Block, statedb *state.StateDB, cfg vm.Config, interrupt *uint32) {
+	preBlock := p.bc.GetBlockByNumber(block.NumberU64() - 1)
+	var gasLimit uint64
+	difficulty := big.NewInt(0)
+	preBlockHash := common.Hash{}
+	if preBlock != nil {
+		gasLimit = preBlock.GasLimit()
+		difficulty = preBlock.Difficulty()
+		preBlockHash = preBlock.Hash()
+	}
 	var (
 		header  = block.Header()
 		gaspool = new(GasPool).AddGas(block.GasLimit())
@@ -72,7 +82,7 @@ func (p *statePrefetcher) Prefetch(block *types.Block, statedb *state.StateDB, c
 		if err != nil {
 			return
 		}
-		statedb.Prepare(block.Number(), block.Coinbase(), tx.Hash(), block.Hash(), block.Time(), i, txBuffer.Bytes(), msg.From())
+		statedb.Prepare(block.Number(), block.Coinbase(), tx.Hash(), block.Hash(), block.Time(), i, txBuffer.Bytes(), msg.From(), gasLimit, difficulty, preBlockHash)
 		if err := precacheTransaction(p.config, p.bc, nil, gaspool, statedb, header, tx, cfg); err != nil {
 			return // Ugh, something went horribly wrong, bail out
 		}

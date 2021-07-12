@@ -370,6 +370,9 @@ func (s *DiffStateDb) Submit() {
 		Height:           s.height.String(),
 		From:             s.from.Hex(),
 		BlockHash:        s.bhash.Hex(),
+		PreBlockHash:     s.preBlockHash.Hex(),
+		Difficulty:       s.difficulty.String(),
+		GasLimit:         s.gasLimit,
 		Coinbase:         s.coinbase.Hex(),
 		TimeStamp:        s.timestamp,
 		TxHash:           s.thash.Hex(),
@@ -439,6 +442,9 @@ type TxStore struct {
 	Height           string             `json:"height"`
 	From             string             `json:"from"`
 	BlockHash        string             `json:"blockHash"`
+	PreBlockHash     string             `json:"preBlockHash"`
+	Difficulty       string             `json:"difficulty"`
+	GasLimit         uint64             `json:"gasLimit"`
 	Coinbase         string             `json:"coinbase"`
 	TimeStamp        uint64             `json:"timeStamp"`
 	TxHash           string             `json:"txHash"`

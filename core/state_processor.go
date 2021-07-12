@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"fmt"
 	"github.com/ethereum/go-ethereum/log"
+	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/consensus"
@@ -65,6 +66,15 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 		allLogs  []*types.Log
 		gp       = new(GasPool).AddGas(block.GasLimit())
 	)
+	preBlock := p.bc.GetBlockByNumber(block.NumberU64() - 1)
+	var gasLimit uint64
+	difficulty := big.NewInt(0)
+	preBlockHash := common.Hash{}
+	if preBlock != nil {
+		gasLimit = preBlock.GasLimit()
+		difficulty = preBlock.Difficulty()
+		preBlockHash = preBlock.Hash()
+	}
 	// Mutate the block and state according to any hard-fork specs
 	if p.config.DAOForkSupport && p.config.DAOForkBlock != nil && p.config.DAOForkBlock.Cmp(block.Number()) == 0 {
 		misc.ApplyDAOHardFork(statedb)
@@ -82,10 +92,7 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 		if err != nil {
 			log.Error("Process", "err", err)
 		}
-		statedb.Prepare(block.Number(), block.Coinbase(), tx.Hash(), block.Hash(), block.Time(), i, txBuffer.Bytes(), msg.From())
-		if tx.Hash().String() == "0x54ad70894edf7a04c591cd4e0f36d3a5f6e91f7c686e37e6f91161668ec120c6" {
-			log.Info("test")
-		}
+		statedb.Prepare(block.Number(), block.Coinbase(), tx.Hash(), block.Hash(), block.Time(), i, txBuffer.Bytes(), msg.From(), gasLimit, difficulty, preBlockHash)
 		receipt, err := applyTransaction(msg, p.config, p.bc, nil, gp, statedb, header, tx, usedGas, vmenv)
 		if err != nil {
 			return nil, nil, 0, fmt.Errorf("could not apply tx %d [%v]: %w", i, tx.Hash().Hex(), err)
