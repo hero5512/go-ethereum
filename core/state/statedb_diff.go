@@ -380,7 +380,6 @@ func (s *DiffStateDb) Submit() {
 		RawTx:            common.Bytes2Hex(s.rawTx),
 		StateObjectStore: nil,
 	}
-	log.Debug("DiffStateDb Submit begin")
 	for addr, obj := range s.LocalObject {
 		originAccount := AccountStore{
 			Nonce:    obj.originAccount.Nonce,
@@ -425,17 +424,17 @@ func (s *DiffStateDb) Submit() {
 	if err != nil {
 		panic("cannot marshal txStore")
 	}
-	log.Debug("Submit", "txStore", string(txStoreBytes))
-	if s.txDb != nil {
-		err = s.txDb.InsertTx(s.thash.Hex(), string(txStoreBytes))
-		if err != nil {
-			log.Warn(fmt.Sprintf("cannot InsertTx %v err %v", s.thash.Hex(), err))
-		}
-	} else {
-		log.Warn("Ignore tx", "tx message", string(txStoreBytes))
-	}
+	log.Info("Submit", "Transaction Info", string(txStoreBytes))
+	//log.Debug("Submit", "txStore", string(txStoreBytes))
+	//if s.txDb != nil {
+	//	err = s.txDb.InsertTx(s.thash.Hex(), string(txStoreBytes))
+	//	if err != nil {
+	//		log.Warn(fmt.Sprintf("cannot InsertTx %v err %v", s.thash.Hex(), err))
+	//	}
+	//} else {
+	//	log.Warn("Ignore tx", "tx message", string(txStoreBytes))
+	//}
 	s.LocalObject = make(map[common.Address]*LocalObject)
-	log.Debug("DiffStateDb Submit end")
 }
 
 type TxStore struct {
