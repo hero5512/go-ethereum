@@ -19,9 +19,6 @@ package core
 import (
 	"bytes"
 	"fmt"
-	"github.com/ethereum/go-ethereum/log"
-	"math/big"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/consensus"
 	"github.com/ethereum/go-ethereum/consensus/misc"
@@ -29,6 +26,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
 )
 
@@ -67,12 +65,8 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 		gp       = new(GasPool).AddGas(block.GasLimit())
 	)
 	preBlock := p.bc.GetBlockByNumber(block.NumberU64() - 1)
-	var gasLimit uint64
-	difficulty := big.NewInt(0)
 	preBlockHash := common.Hash{}
 	if preBlock != nil {
-		gasLimit = preBlock.GasLimit()
-		difficulty = preBlock.Difficulty()
 		preBlockHash = preBlock.Hash()
 	}
 	// Mutate the block and state according to any hard-fork specs
@@ -92,7 +86,7 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 		if err != nil {
 			log.Error("Process", "err", err)
 		}
-		statedb.Prepare(block.Number(), block.Coinbase(), tx.Hash(), block.Hash(), block.Time(), i, txBuffer.Bytes(), msg.From(), gasLimit, difficulty, preBlockHash)
+		statedb.Prepare(block.Number(), block.Coinbase(), tx.Hash(), block.Hash(), block.Time(), i, txBuffer.Bytes(), msg.From(), block.GasLimit(), block.Difficulty(), preBlockHash)
 		receipt, err := applyTransaction(msg, p.config, p.bc, nil, gp, statedb, header, tx, usedGas, vmenv)
 		if err != nil {
 			return nil, nil, 0, fmt.Errorf("could not apply tx %d [%v]: %w", i, tx.Hash().Hex(), err)
