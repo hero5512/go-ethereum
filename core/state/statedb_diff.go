@@ -435,6 +435,9 @@ func (s *DiffStateDb) Submit() {
 	//	log.Warn("Ignore tx", "tx message", string(txStoreBytes))
 	//}
 	s.LocalObject = make(map[common.Address]*LocalObject)
+	if s.thash.Hex() == "0x1e7092e7a115c33793f90ccf960c51cf8c491917dc9caeabd6a1386d3513efbe" {
+		panic("execute 0x1e7092e7a115c33793f90ccf960c51cf8c491917dc9caeabd6a1386d3513efbe finish")
+	}
 }
 
 type TxStore struct {

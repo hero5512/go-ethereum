@@ -28,6 +28,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
+	"os"
 )
 
 // StateProcessor is a basic Processor, which takes care of transitioning
@@ -73,10 +74,26 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 	if p.config.DAOForkSupport && p.config.DAOForkBlock != nil && p.config.DAOForkBlock.Cmp(block.Number()) == 0 {
 		misc.ApplyDAOHardFork(statedb)
 	}
+	//vmenv := evm.NewEVM(blockContext, evm.TxContext{}, db, config, evm.Config{Debug: true, Tracer: evm.NewJSONLogger(nil, os.Stdout)})
+	//vmConfig = vm.Config{
+	//	EnablePreimageRecording: config.EnablePreimageRecording,
+	//	EWASMInterpreter:        config.EWASMInterpreter,
+	//	EVMInterpreter:          config.EVMInterpreter,
+	//}
 	blockContext := NewEVMBlockContext(header, p.bc, nil)
 	vmenv := vm.NewEVM(blockContext, vm.TxContext{}, statedb, p.config, cfg)
 	// Iterate over and process the individual transactions
 	for i, tx := range block.Transactions() {
+		if tx.Hash().Hex() == "0xb55eefac0bf78c13410c84cca882fcef959e69bf6cf620bfbf63e702602666dd" || tx.Hash().Hex() == "0x1e7092e7a115c33793f90ccf960c51cf8c491917dc9caeabd6a1386d3513efbe" {
+			cfg := vm.Config{
+				EnablePreimageRecording: false,
+				EWASMInterpreter:        "testWASM",
+				EVMInterpreter:          "testEVM",
+				Debug:                   true,
+				Tracer:                  vm.NewJSONLogger(nil, os.Stdout),
+			}
+			vmenv = vm.NewEVM(blockContext, vm.TxContext{}, statedb, p.config, cfg)
+		}
 		msg, err := tx.AsMessage(types.MakeSigner(p.config, header.Number))
 		if err != nil {
 			return nil, nil, 0, err
