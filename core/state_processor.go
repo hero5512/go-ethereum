@@ -86,9 +86,9 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 	for i, tx := range block.Transactions() {
 		if tx.Hash().Hex() == "0xb55eefac0bf78c13410c84cca882fcef959e69bf6cf620bfbf63e702602666dd" || tx.Hash().Hex() == "0x1e7092e7a115c33793f90ccf960c51cf8c491917dc9caeabd6a1386d3513efbe" {
 			cfg := vm.Config{
-				EnablePreimageRecording: false,
-				EWASMInterpreter:        "testWASM",
-				EVMInterpreter:          "testEVM",
+				EnablePreimageRecording: cfg.EnablePreimageRecording,
+				EWASMInterpreter:        cfg.EWASMInterpreter,
+				EVMInterpreter:          cfg.EVMInterpreter,
 				Debug:                   true,
 				Tracer:                  vm.NewJSONLogger(nil, os.Stdout),
 			}
