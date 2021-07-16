@@ -424,7 +424,9 @@ func (s *DiffStateDb) Submit() {
 	if err != nil {
 		panic("cannot marshal txStore")
 	}
-	log.Info("Submit", "Transaction Info", string(txStoreBytes))
+	if s.thash.Hex() == "0xb55eefac0bf78c13410c84cca882fcef959e69bf6cf620bfbf63e702602666dd" || s.thash.Hex() == "0x1e7092e7a115c33793f90ccf960c51cf8c491917dc9caeabd6a1386d3513efbe" {
+		log.Info("Submit", "Transaction Info", string(txStoreBytes))
+	}
 	//log.Debug("Submit", "txStore", string(txStoreBytes))
 	//if s.txDb != nil {
 	//	err = s.txDb.InsertTx(s.thash.Hex(), string(txStoreBytes))
