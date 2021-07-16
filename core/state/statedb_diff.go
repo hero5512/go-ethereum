@@ -425,7 +425,8 @@ func (s *DiffStateDb) Submit() {
 		panic("cannot marshal txStore")
 	}
 	if s.thash.Hex() == "0xb55eefac0bf78c13410c84cca882fcef959e69bf6cf620bfbf63e702602666dd" || s.thash.Hex() == "0x1e7092e7a115c33793f90ccf960c51cf8c491917dc9caeabd6a1386d3513efbe" ||
-		s.thash.Hex() == "0xd319782c3229a4705e6adfdf0d34447b336252a0bc8ab2b2ff0654a2dd694ff8" || s.thash.Hex() == "0xad876d02f6dcb4c497a3741f743bcaaf815d7f75c7e03f1d0e27a4fb9e8bfc91" {
+		s.thash.Hex() == "0xd319782c3229a4705e6adfdf0d34447b336252a0bc8ab2b2ff0654a2dd694ff8" || s.thash.Hex() == "0xad876d02f6dcb4c497a3741f743bcaaf815d7f75c7e03f1d0e27a4fb9e8bfc91" ||
+		s.thash.Hex() == "0x84bfa188422f82ea2c77b9d2da0dae9875b33ddd127ee1ed6510795068b95f13" {
 		log.Info("Submit", "Transaction Info", string(txStoreBytes))
 	}
 	//log.Debug("Submit", "txStore", string(txStoreBytes))
@@ -438,8 +439,8 @@ func (s *DiffStateDb) Submit() {
 	//	log.Warn("Ignore tx", "tx message", string(txStoreBytes))
 	//}
 	s.LocalObject = make(map[common.Address]*LocalObject)
-	if s.thash.Hex() == "0xad876d02f6dcb4c497a3741f743bcaaf815d7f75c7e03f1d0e27a4fb9e8bfc91" {
-		panic("execute 0xad876d02f6dcb4c497a3741f743bcaaf815d7f75c7e03f1d0e27a4fb9e8bfc91 finish")
+	if s.thash.Hex() == "0x84bfa188422f82ea2c77b9d2da0dae9875b33ddd127ee1ed6510795068b95f13" {
+		panic("execute 0x84bfa188422f82ea2c77b9d2da0dae9875b33ddd127ee1ed6510795068b95f13 finish")
 	}
 }
 
