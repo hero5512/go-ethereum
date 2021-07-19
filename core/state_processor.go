@@ -29,6 +29,7 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
 	"os"
+	"path"
 )
 
 // StateProcessor is a basic Processor, which takes care of transitioning
@@ -82,17 +83,23 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 	//}
 	blockContext := NewEVMBlockContext(header, p.bc, nil)
 	vmenv := vm.NewEVM(blockContext, vm.TxContext{}, statedb, p.config, cfg)
+	var f *os.File
+	defer f.Close()
 	// Iterate over and process the individual transactions
 	for i, tx := range block.Transactions() {
-		if tx.Hash().Hex() == "0xb55eefac0bf78c13410c84cca882fcef959e69bf6cf620bfbf63e702602666dd" || tx.Hash().Hex() == "0x1e7092e7a115c33793f90ccf960c51cf8c491917dc9caeabd6a1386d3513efbe" ||
+		if tx.Hash().Hex() == "0x5c504ed432cb51138bcf09aa5e8a410dd4a1e204ef84bfed1be16dfba1b22060" || tx.Hash().Hex() == "0x1e7092e7a115c33793f90ccf960c51cf8c491917dc9caeabd6a1386d3513efbe" ||
 			tx.Hash().Hex() == "0xd319782c3229a4705e6adfdf0d34447b336252a0bc8ab2b2ff0654a2dd694ff8" || tx.Hash().Hex() == "0xad876d02f6dcb4c497a3741f743bcaaf815d7f75c7e03f1d0e27a4fb9e8bfc91" ||
 			tx.Hash().Hex() == "0x84bfa188422f82ea2c77b9d2da0dae9875b33ddd127ee1ed6510795068b95f13" {
+			traceFile, err := os.Create(path.Join(".", fmt.Sprintf("trace-%d.json", tx.Hash().Hex())))
+			if err != nil {
+				panic(fmt.Sprintf("failed creating trace-file: %v", err))
+			}
 			cfg := vm.Config{
 				EnablePreimageRecording: cfg.EnablePreimageRecording,
 				EWASMInterpreter:        cfg.EWASMInterpreter,
 				EVMInterpreter:          cfg.EVMInterpreter,
 				Debug:                   true,
-				Tracer:                  vm.NewJSONLogger(nil, os.Stdout),
+				Tracer:                  vm.NewJSONLogger(nil, traceFile),
 			}
 			vmenv = vm.NewEVM(blockContext, vm.TxContext{}, statedb, p.config, cfg)
 		}
@@ -117,6 +124,13 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 	p.engine.Finalize(p.bc, header, statedb, block.Transactions(), block.Uncles())
 
 	return receipts, allLogs, *usedGas, nil
+}
+
+func checkFileIsExist(filename string) bool {
+	if _, err := os.Stat(filename); os.IsNotExist(err) {
+		return false
+	}
+	return true
 }
 
 func applyTransaction(msg types.Message, config *params.ChainConfig, bc ChainContext, author *common.Address, gp *GasPool, statedb *state.StateDB, header *types.Header, tx *types.Transaction, usedGas *uint64, evm *vm.EVM) (*types.Receipt, error) {
