@@ -60,12 +60,12 @@ func (s *DiffStateDb) Exist(addr common.Address) bool {
 		if !exist {
 			s.LocalObject[addr] = s.newLocalObject(*obj)
 		}
-		if s.thash.Hex() == "0xd319782c3229a4705e6adfdf0d34447b336252a0bc8ab2b2ff0654a2dd694ff8" {
+		if s.thash.Hex() == "0x7bad67122e6547036953c778e93c5da2b69be72ba30b8f3587cfcc85c02b8842" {
 			log.Info("Exist", "addr", addr.Hex(), "exist", true)
 		}
 		return true
 	}
-	if s.thash.Hex() == "0xd319782c3229a4705e6adfdf0d34447b336252a0bc8ab2b2ff0654a2dd694ff8" {
+	if s.thash.Hex() == "0x7bad67122e6547036953c778e93c5da2b69be72ba30b8f3587cfcc85c02b8842" {
 		log.Info("Exist", "addr", addr.Hex(), "exist", false)
 	}
 	return false
@@ -81,7 +81,7 @@ func (s *DiffStateDb) Empty(addr common.Address) bool {
 			s.LocalObject[addr] = s.newLocalObject(*so)
 		}
 	}
-	if s.thash.Hex() == "0xd319782c3229a4705e6adfdf0d34447b336252a0bc8ab2b2ff0654a2dd694ff8" {
+	if s.thash.Hex() == "0x7bad67122e6547036953c778e93c5da2b69be72ba30b8f3587cfcc85c02b8842" {
 		log.Info("Empty", "addr", addr.Hex(), "empty", so == nil || so.empty())
 	}
 	return so == nil || so.empty()
@@ -92,7 +92,7 @@ func (s *DiffStateDb) CreateAccount(addr common.Address) {
 	if prev != nil {
 		newObj.setBalance(prev.data.Balance)
 	}
-	if s.thash.Hex() == "0xd319782c3229a4705e6adfdf0d34447b336252a0bc8ab2b2ff0654a2dd694ff8" {
+	if s.thash.Hex() == "0x7bad67122e6547036953c778e93c5da2b69be72ba30b8f3587cfcc85c02b8842" {
 		log.Info("CreateAccount", "addr", addr.Hex(), "balance", newObj.data.Balance.String())
 	}
 	s.LocalObject[addr] = s.newLocalObject(*newObj)
@@ -112,7 +112,7 @@ func (s *DiffStateDb) SubBalance(addr common.Address, amount *big.Int) {
 			}
 			obj.currentAccount.Balance = new(big.Int).Sub(stateObject.Balance(), amount)
 		}
-		if s.thash.Hex() == "0xd319782c3229a4705e6adfdf0d34447b336252a0bc8ab2b2ff0654a2dd694ff8" {
+		if s.thash.Hex() == "0x7bad67122e6547036953c778e93c5da2b69be72ba30b8f3587cfcc85c02b8842" {
 			log.Info("SubBalance", "addr", addr.Hex(), "originBalance", stateObject.data.Balance.String(), "subBalance", amount.String())
 		}
 		stateObject.SubBalance(amount)
@@ -133,7 +133,7 @@ func (s *DiffStateDb) AddBalance(addr common.Address, amount *big.Int) {
 			}
 			obj.currentAccount.Balance = new(big.Int).Add(stateObject.Balance(), amount)
 		}
-		if s.thash.Hex() == "0xd319782c3229a4705e6adfdf0d34447b336252a0bc8ab2b2ff0654a2dd694ff8" {
+		if s.thash.Hex() == "0x7bad67122e6547036953c778e93c5da2b69be72ba30b8f3587cfcc85c02b8842" {
 			log.Info("AddBalance", "addr", addr.Hex(), "originBalance", stateObject.data.Balance.String(), "addBalance", amount.String())
 		}
 		stateObject.AddBalance(amount)
@@ -143,7 +143,7 @@ func (s *DiffStateDb) AddBalance(addr common.Address, amount *big.Int) {
 func (s *DiffStateDb) GetBalance(addr common.Address) *big.Int {
 	stateObject := s.getStateObject(addr)
 	if stateObject != nil {
-		if s.thash.Hex() == "0xd319782c3229a4705e6adfdf0d34447b336252a0bc8ab2b2ff0654a2dd694ff8" {
+		if s.thash.Hex() == "0x7bad67122e6547036953c778e93c5da2b69be72ba30b8f3587cfcc85c02b8842" {
 			log.Info("GetBalance", "addr", addr.Hex(), "balance", stateObject.Balance().String())
 		}
 		_, exist := s.LocalObject[addr]
@@ -152,7 +152,7 @@ func (s *DiffStateDb) GetBalance(addr common.Address) *big.Int {
 		}
 		return stateObject.Balance()
 	}
-	if s.thash.Hex() == "0xd319782c3229a4705e6adfdf0d34447b336252a0bc8ab2b2ff0654a2dd694ff8" {
+	if s.thash.Hex() == "0x7bad67122e6547036953c778e93c5da2b69be72ba30b8f3587cfcc85c02b8842" {
 		log.Info("GetBalance", "addr", addr.Hex(), "balance", common.Big0.String())
 	}
 	return common.Big0
@@ -165,7 +165,7 @@ func (s *DiffStateDb) GetNonce(addr common.Address) uint64 {
 		if !exist {
 			s.LocalObject[addr] = s.newLocalObject(*stateObject)
 		}
-		if s.thash.Hex() == "0xd319782c3229a4705e6adfdf0d34447b336252a0bc8ab2b2ff0654a2dd694ff8" {
+		if s.thash.Hex() == "0x7bad67122e6547036953c778e93c5da2b69be72ba30b8f3587cfcc85c02b8842" {
 			log.Info("GetNonce", "addr", addr.Hex(), "nonce", stateObject.Nonce())
 		}
 		return stateObject.Nonce()
@@ -184,7 +184,7 @@ func (s *DiffStateDb) SetNonce(addr common.Address, nonce uint64) {
 		} else {
 			obj.currentAccount.Nonce = nonce
 		}
-		if s.thash.Hex() == "0xd319782c3229a4705e6adfdf0d34447b336252a0bc8ab2b2ff0654a2dd694ff8" {
+		if s.thash.Hex() == "0x7bad67122e6547036953c778e93c5da2b69be72ba30b8f3587cfcc85c02b8842" {
 			log.Info("SetNonce", "addr", addr.Hex(), "nonce", stateObject.Nonce())
 		}
 		stateObject.SetNonce(nonce)
@@ -194,7 +194,7 @@ func (s *DiffStateDb) SetNonce(addr common.Address, nonce uint64) {
 func (s *DiffStateDb) GetCodeHash(addr common.Address) common.Hash {
 	stateObject := s.getStateObject(addr)
 	if stateObject == nil {
-		if s.thash.Hex() == "0xd319782c3229a4705e6adfdf0d34447b336252a0bc8ab2b2ff0654a2dd694ff8" {
+		if s.thash.Hex() == "0x7bad67122e6547036953c778e93c5da2b69be72ba30b8f3587cfcc85c02b8842" {
 			log.Info("GetCodeHash", "addr", addr.Hex(), "codeHash", common.Hash{}.Hex())
 		}
 		return common.Hash{}
@@ -203,7 +203,7 @@ func (s *DiffStateDb) GetCodeHash(addr common.Address) common.Hash {
 	if !exist {
 		s.LocalObject[addr] = s.newLocalObject(*stateObject)
 	}
-	if s.thash.Hex() == "0xd319782c3229a4705e6adfdf0d34447b336252a0bc8ab2b2ff0654a2dd694ff8" {
+	if s.thash.Hex() == "0x7bad67122e6547036953c778e93c5da2b69be72ba30b8f3587cfcc85c02b8842" {
 		log.Info("GetCodeHash", "addr", addr.Hex(), "codeHash", common.BytesToHash(stateObject.CodeHash()).Hex())
 	}
 	return common.BytesToHash(stateObject.CodeHash())
@@ -223,7 +223,7 @@ func (s *DiffStateDb) GetCode(addr common.Address) []byte {
 			}
 		}
 		obj.currentCode = code
-		if s.thash.Hex() == "0xd319782c3229a4705e6adfdf0d34447b336252a0bc8ab2b2ff0654a2dd694ff8" {
+		if s.thash.Hex() == "0x7bad67122e6547036953c778e93c5da2b69be72ba30b8f3587cfcc85c02b8842" {
 			log.Info("GetCode", "addr", addr.Hex(), "code", common.Bytes2Hex(code))
 		}
 		return code
@@ -243,7 +243,7 @@ func (s *DiffStateDb) SetCode(addr common.Address, code []byte) {
 			}
 			obj.currentCode = code
 		}
-		if s.thash.Hex() == "0xd319782c3229a4705e6adfdf0d34447b336252a0bc8ab2b2ff0654a2dd694ff8" {
+		if s.thash.Hex() == "0x7bad67122e6547036953c778e93c5da2b69be72ba30b8f3587cfcc85c02b8842" {
 			log.Info("SetCode", "addr", addr.Hex(), "code", common.Bytes2Hex(code))
 		}
 		stateObject.SetCode(crypto.Keccak256Hash(code), code)
@@ -265,7 +265,7 @@ func (s *DiffStateDb) GetCodeSize(addr common.Address) int {
 		}
 		obj.currentCode = code
 		size := stateObject.CodeSize(s.db)
-		if s.thash.Hex() == "0xd319782c3229a4705e6adfdf0d34447b336252a0bc8ab2b2ff0654a2dd694ff8" {
+		if s.thash.Hex() == "0x7bad67122e6547036953c778e93c5da2b69be72ba30b8f3587cfcc85c02b8842" {
 			log.Info("GetCodeSize", "addr", addr.Hex(), "size", size)
 		}
 		return size
@@ -288,12 +288,12 @@ func (s *DiffStateDb) GetCommittedState(addr common.Address, hash common.Hash) c
 				obj.originStorage[hash] = committedState
 			}
 		}
-		if s.thash.Hex() == "0xd319782c3229a4705e6adfdf0d34447b336252a0bc8ab2b2ff0654a2dd694ff8" {
+		if s.thash.Hex() == "0x7bad67122e6547036953c778e93c5da2b69be72ba30b8f3587cfcc85c02b8842" {
 			log.Info("GetCommittedState", "addr", addr.Hex(), "state", committedState.Hex())
 		}
 		return committedState
 	}
-	if s.thash.Hex() == "0xd319782c3229a4705e6adfdf0d34447b336252a0bc8ab2b2ff0654a2dd694ff8" {
+	if s.thash.Hex() == "0x7bad67122e6547036953c778e93c5da2b69be72ba30b8f3587cfcc85c02b8842" {
 		log.Info("GetCommittedState", "addr", addr.Hex(), "state", common.Hash{}.Hex())
 	}
 	return common.Hash{}
@@ -306,7 +306,7 @@ func (s *DiffStateDb) HasSuicided(addr common.Address) bool {
 		if !exist {
 			s.LocalObject[addr] = s.newLocalObject(*stateObject)
 		}
-		if s.thash.Hex() == "0xd319782c3229a4705e6adfdf0d34447b336252a0bc8ab2b2ff0654a2dd694ff8" {
+		if s.thash.Hex() == "0x7bad67122e6547036953c778e93c5da2b69be72ba30b8f3587cfcc85c02b8842" {
 			log.Info("HasSuicided", "addr", addr.Hex(), "suicided", stateObject.suicided)
 		}
 		return stateObject.suicided
@@ -346,12 +346,12 @@ func (s *DiffStateDb) GetState(addr common.Address, hash common.Hash) common.Has
 			obj.currentStorage = make(map[common.Hash]common.Hash)
 		}
 		obj.currentStorage[hash] = state
-		if s.thash.Hex() == "0xd319782c3229a4705e6adfdf0d34447b336252a0bc8ab2b2ff0654a2dd694ff8" {
+		if s.thash.Hex() == "0x7bad67122e6547036953c778e93c5da2b69be72ba30b8f3587cfcc85c02b8842" {
 			log.Info("GetState", "addr", addr.Hex(), "state", state.Hex())
 		}
 		return state
 	}
-	if s.thash.Hex() == "0xd319782c3229a4705e6adfdf0d34447b336252a0bc8ab2b2ff0654a2dd694ff8" {
+	if s.thash.Hex() == "0x7bad67122e6547036953c778e93c5da2b69be72ba30b8f3587cfcc85c02b8842" {
 		log.Info("GetState", "addr", addr.Hex(), "state", state.Hex())
 	}
 	return state
@@ -378,7 +378,7 @@ func (s *DiffStateDb) SetState(addr common.Address, key, value common.Hash) {
 			obj.currentStorage = make(map[common.Hash]common.Hash)
 		}
 		obj.currentStorage[key] = value
-		if s.thash.Hex() == "0xd319782c3229a4705e6adfdf0d34447b336252a0bc8ab2b2ff0654a2dd694ff8" {
+		if s.thash.Hex() == "0x7bad67122e6547036953c778e93c5da2b69be72ba30b8f3587cfcc85c02b8842" {
 			log.Info("SetState", "addr", addr.Hex(), "state", value.Hex())
 		}
 		stateObject.SetState(s.db, key, value)
@@ -405,7 +405,7 @@ func (s *DiffStateDb) Suicide(addr common.Address) bool {
 	} else {
 		obj.currentAccount.Balance = stateObject.data.Balance
 	}
-	if s.thash.Hex() == "0xd319782c3229a4705e6adfdf0d34447b336252a0bc8ab2b2ff0654a2dd694ff8" {
+	if s.thash.Hex() == "0x7bad67122e6547036953c778e93c5da2b69be72ba30b8f3587cfcc85c02b8842" {
 		log.Info("Suicide", "addr", addr.Hex())
 	}
 	return true
@@ -424,7 +424,7 @@ func (s *DiffStateDb) RevertToSnapshot(revid int) {
 	// Replay the journal to undo changes and remove invalidated snapshots
 	s.journal.revert2(s, snapshot)
 	s.validRevisions = s.validRevisions[:idx]
-	if s.thash.Hex() == "0xd319782c3229a4705e6adfdf0d34447b336252a0bc8ab2b2ff0654a2dd694ff8" {
+	if s.thash.Hex() == "0x7bad67122e6547036953c778e93c5da2b69be72ba30b8f3587cfcc85c02b8842" {
 		log.Info("RevertToSnapshot", "revid", revid)
 	}
 }
@@ -493,8 +493,7 @@ func (s *DiffStateDb) Submit() {
 	}
 	// s.thash.Hex() == "0xb55eefac0bf78c13410c84cca882fcef959e69bf6cf620bfbf63e702602666dd" ||
 	// s.thash.Hex() == "0x1e7092e7a115c33793f90ccf960c51cf8c491917dc9caeabd6a1386d3513efbe" ||
-	if s.thash.Hex() == "0xd319782c3229a4705e6adfdf0d34447b336252a0bc8ab2b2ff0654a2dd694ff8" || s.thash.Hex() == "0xad876d02f6dcb4c497a3741f743bcaaf815d7f75c7e03f1d0e27a4fb9e8bfc91" ||
-		s.thash.Hex() == "0x84bfa188422f82ea2c77b9d2da0dae9875b33ddd127ee1ed6510795068b95f13" {
+	if s.thash.Hex() == "0x7bad67122e6547036953c778e93c5da2b69be72ba30b8f3587cfcc85c02b8842" {
 		log.Info("Submit", "Transaction Info", string(txStoreBytes))
 	}
 	//log.Debug("Submit", "txStore", string(txStoreBytes))
@@ -507,10 +506,9 @@ func (s *DiffStateDb) Submit() {
 	//	log.Warn("Ignore tx", "tx message", string(txStoreBytes))
 	//}
 	s.LocalObject = make(map[common.Address]*LocalObject)
-	// s.thash.Hex() == "0xd319782c3229a4705e6adfdf0d34447b336252a0bc8ab2b2ff0654a2dd694ff8" ||
+	// s.thash.Hex() == "0x7bad67122e6547036953c778e93c5da2b69be72ba30b8f3587cfcc85c02b8842" ||
 	// if s.thash.Hex() == "0x1e7092e7a115c33793f90ccf960c51cf8c491917dc9caeabd6a1386d3513efbe" ||
-	if s.thash.Hex() == "0xd319782c3229a4705e6adfdf0d34447b336252a0bc8ab2b2ff0654a2dd694ff8" || s.thash.Hex() == "0xad876d02f6dcb4c497a3741f743bcaaf815d7f75c7e03f1d0e27a4fb9e8bfc91" ||
-		s.thash.Hex() == "0x84bfa188422f82ea2c77b9d2da0dae9875b33ddd127ee1ed6510795068b95f13" {
+	if s.thash.Hex() == "0x7bad67122e6547036953c778e93c5da2b69be72ba30b8f3587cfcc85c02b8842" {
 		panic("execute tx finish")
 	}
 }
