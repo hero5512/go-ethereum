@@ -245,6 +245,9 @@ func (s *StateDB) Preimages() map[common.Hash][]byte {
 
 // AddRefund adds gas to the refund counter
 func (s *StateDB) AddRefund(gas uint64) {
+	if s.thash.Hex() == "0xd319782c3229a4705e6adfdf0d34447b336252a0bc8ab2b2ff0654a2dd694ff8" {
+		log.Info("AddRefund", "gas", gas)
+	}
 	s.journal.append(refundChange{prev: s.refund})
 	s.refund += gas
 }
@@ -252,6 +255,9 @@ func (s *StateDB) AddRefund(gas uint64) {
 // SubRefund removes gas from the refund counter.
 // This method will panic if the refund counter goes below zero
 func (s *StateDB) SubRefund(gas uint64) {
+	if s.thash.Hex() == "0xd319782c3229a4705e6adfdf0d34447b336252a0bc8ab2b2ff0654a2dd694ff8" {
+		log.Info("SubRefund", "gas", gas)
+	}
 	s.journal.append(refundChange{prev: s.refund})
 	if gas > s.refund {
 		panic(fmt.Sprintf("Refund counter below zero (gas: %d > refund: %d)", gas, s.refund))
@@ -756,6 +762,9 @@ func (s *StateDB) RevertToSnapshot(revid int) {
 
 // GetRefund returns the current value of the refund counter.
 func (s *StateDB) GetRefund() uint64 {
+	if s.thash.Hex() == "0xd319782c3229a4705e6adfdf0d34447b336252a0bc8ab2b2ff0654a2dd694ff8" {
+		log.Info("GetRefund", "refund", s.refund)
+	}
 	return s.refund
 }
 
